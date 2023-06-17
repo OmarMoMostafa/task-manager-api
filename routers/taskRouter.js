@@ -30,8 +30,8 @@ router.get("/tasks", auth, async (req, res) => {
       .limit(parseInt(req.query.limit))
       .skip(parseInt(req.query.skip))
       .sort(sortParams);
-    if (tasks.length === 0)
-      return res.status(404).json({ error: "no tasks found" });
+    // if (tasks.length === 0)
+    //   return res.status(404).json({ error: "no tasks found" });
 
     res.json({ tasks });
   } catch (error) {

@@ -25,9 +25,12 @@ router.post("/users", async (req, res) => {
   newUser.tokens = newUser.tokens.concat({ token });
   try {
     await newUser.save();
-    res.json({ message: "welcome to our website", token });
+    res.json({
+      user: { _id: newUser._id, name: newUser.name, email: newUser.email },
+      token,
+    });
   } catch (error) {
-    res.status(401).json({ error: error });
+    sendError(res, error.message);
   }
 });
 
@@ -83,42 +86,47 @@ router.patch("/users/me", auth, async (req, res) => {
     if (!user) {
       return sendError(res, "user not found", 404);
     }
-    res.json({ user });
+    res.json({ id: user._id, name: user.name, email: user.email });
   } catch (error) {
     res.status(401).json({ error: error });
   }
 });
 
 router.delete("/users/me", auth, async (req, res) => {
+  const user = req.user;
   try {
     await UserModel.deleteOne({ _id: req.user._id });
     await TaskModel.deleteMany({ owner: req.user._id });
-    res.json(req.user);
+    res.json({ id: user._id, name: user.name, email: user.email });
   } catch (error) {
     res.status(401).json({ error: "error" });
   }
 });
 
 router.post("/users/login", async (req, res) => {
-  const { email, password } = req.body;
-  const user = await UserModel.findOne({ email });
-  if (!user) return sendError(res, "email or password missmatch");
-  const isMatch = await user.comparePassword(password);
-  if (!isMatch) return sendError(res, "email or password missmatch");
+  try {
+    const { email, password } = req.body;
+    const user = await UserModel.findOne({ email });
+    if (!user) return sendError(res, "email or password missmatch");
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) return sendError(res, "email or password missmatch");
 
-  const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET);
+    const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET);
 
-  user.tokens = user.tokens.concat({ token });
-  await user.save();
+    user.tokens = user.tokens.concat({ token });
+    await user.save();
 
-  res.json({
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-    },
-    token: token,
-  });
+    res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+      token: token,
+    });
+  } catch (error) {
+    res.json({ error: "request refused" });
+  }
 });
 
 const storage = createStorage();
@@ -162,7 +170,7 @@ router.get("/users/:id/avatar", async (req, res) => {
     const user = await UserModel.findById(req.params.id);
     if (!user) throw new Error();
     if (!user.avatar) {
-      return res.json({ message: "no avatar to this user" });
+      return res.send();
     }
     res.set("Content-Type", "image/png");
     res.send(user.avatar);
